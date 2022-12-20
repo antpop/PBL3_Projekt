@@ -7,38 +7,51 @@ uart = serial.Serial("/dev/ttyS0", baudrate=9600, parity=serial.PARITY_NONE, sto
 
 sreadlen = 1024 # max number of chars to read from serial in one try 
 
-def AT_test():
-	while True:
-		if not uart.inWaiting():
-			user_input = input('Insert AT command:  ')
-			uart.write((user_input + "\r\n").encode('utf-8'))
+def readData():
+    received_data = ''
+    if uart.inWaiting():
+        received_data += (uart.read(uart.inWaiting())).decode('utf-8')
+        sleep(0.5)
+        print(received_data)
+    return received_data
 
-			timestamp = time()
-			log_file.write(str(timestamp) + ": \n")
-			log_file.write("Command: \n" + user_input + '\n\n')
-
-		sleep(0.1)
-		received_data = ''
-		if uart.inWaiting():
-			received_data += (uart.read(uart.inWaiting())).decode('utf-8')
-			sleep(0.03)
-			log_file.write("Response: \n" + received_data + '\n\n')
-			print(received_data)
-
-def connect_test():
+def connectTest():
     uart.write(('AT').encode('utf-8'))
-    print('Status połączenia z modułem LoRa: \n')
-    readData()
-    print('\n\n')
+    return readData()
 
-def get_data(node):
+def sendAT(command):
+    uart.write((f'{command}').encode('utf-8'))
+    sleep(0.5)
+    return readData()
+
+def send_data_hex(nodeID, data):
+    msg = f'{nodeID}{hex(data)}'
+    uart.write((f'AT+TEST=TXLRPKT, "{msg}"'))
+    
+def receiveData():
+    sendAT('AT+TEST=RXLRPKT')
+    return readData()
+
+def loraConf(id, port):
+    if connectTest() != '+AT: OK': 
+        return 0
+    sendAT('AT+RESET')
+    sendAT('AT+MODE=TEST')
+    #sendAT('AT+CH=1-3')
+    #sendAT(f'AT+ID=DevAddr, "{id}"')
+    #sendAT('AT+PORT={port}')
+    return 1
+    
     
 
 def main():
-    connect_test()
+    receiveData()
+    
 
 
 
 if __name__ == "__main__":
-	while True:
+    if loraConf("00 01 0F 2C", 8) == 0:
+        exit()
+    while True:
         main()
